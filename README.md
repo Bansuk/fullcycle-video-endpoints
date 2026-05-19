@@ -26,7 +26,27 @@ src/
 │   └── infra/
 │       └── db/
 │           └── in-memory/
-│               ├── category-in-memory.repository.ts  # Repositório em memória
+│               ├── category-in-memory.repository.ts
+│               └── __tests__/
+├── cast-member/
+│   ├── domain/
+│   │   ├── cast-member.entity.ts          # Aggregate root de CastMember
+│   │   ├── cast-member.validator.ts       # Regras de validação com class-validator
+│   │   ├── cast-member.repository.ts      # Interface ICastMemberRepository e CastMemberFilter
+│   │   └── __tests__/
+│   │       └── cast-member.entity.spec.ts
+│   ├── application/
+│   │   ├── cast-member-output.ts          # DTO de saída e CastMemberOutputMapper
+│   │   └── use-cases/
+│   │       ├── create-cast-member/
+│   │       ├── update-cast-member/
+│   │       ├── delete-cast-member/
+│   │       ├── get-cast-member/
+│   │       └── search-cast-members/
+│   └── infra/
+│       └── db/
+│           └── in-memory/
+│               ├── cast-member-in-memory.repository.ts
 │               └── __tests__/
 └── shared/
     └── domain/
@@ -47,18 +67,21 @@ src/
 - **Entity** — classe base com `id` UUID gerado automaticamente e `props` imutáveis.
 - **ValueObject** — classe base com props congeladas e igualdade estrutural via `JSON.stringify`.
 - **Category** — aggregate root com `name`, `description`, `is_active` e `created_at`. Suporta as mutações `changeName`, `changeDescription`, `activate` e `deactivate`.
+- **CastMember** — aggregate root com `name`, `type` e `created_at`. Suporta as mutações `changeName` e `changeType`.
 
 ### Casos de Uso (Application Layer)
 
-| Use Case | Descrição |
-|---|---|
-| `CreateCategoryUseCase` | Cria uma nova categoria |
-| `UpdateCategoryUseCase` | Atualiza nome, descrição ou status de uma categoria existente |
-| `DeleteCategoryUseCase` | Remove uma categoria pelo `id` |
-| `GetCategoryUseCase` | Recupera uma categoria pelo `id` |
-| `SearchCategoriesUseCase` | Lista categorias com filtro, ordenação e paginação |
+#### Category
 
-Todos os use cases recebem um DTO de entrada tipado e retornam um `CategoryOutput`:
+| Use Case                  | Descrição                                                     |
+| ------------------------- | ------------------------------------------------------------- |
+| `CreateCategoryUseCase`   | Cria uma nova categoria                                       |
+| `UpdateCategoryUseCase`   | Atualiza nome, descrição ou status de uma categoria existente |
+| `DeleteCategoryUseCase`   | Remove uma categoria pelo `id`                                |
+| `GetCategoryUseCase`      | Recupera uma categoria pelo `id`                              |
+| `SearchCategoriesUseCase` | Lista categorias com filtro, ordenação e paginação            |
+
+Saída padronizada via `CategoryOutput`:
 
 ```typescript
 type CategoryOutput = {
@@ -70,28 +93,62 @@ type CategoryOutput = {
 };
 ```
 
+#### CastMember
+
+| Use Case                    | Descrição                                                       |
+| --------------------------- | --------------------------------------------------------------- |
+| `CreateCastMemberUseCase`   | Cria um novo membro de elenco                                   |
+| `UpdateCastMemberUseCase`   | Atualiza nome ou tipo de um membro de elenco existente          |
+| `DeleteCastMemberUseCase`   | Remove um membro de elenco pelo `id`                            |
+| `GetCastMemberUseCase`      | Recupera um membro de elenco pelo `id`                          |
+| `SearchCastMembersUseCase`  | Lista membros com filtro por `name` ou `type`, ordenação e paginação |
+
+Saída padronizada via `CastMemberOutput`:
+
+```typescript
+type CastMemberOutput = {
+  id: string;
+  name: string;
+  type: CastMemberType; // 1 = Diretor, 2 = Ator
+  created_at: Date;
+};
+```
+
 ### Validação
 
-A validação da entidade `Category` utiliza `class-validator`. As regras aplicadas ao campo `name` são:
+As entidades utilizam `class-validator` seguindo o mesmo padrão em todo o projeto. Quando a validação falha, um `EntityValidationError` é lançado com os erros organizados por campo.
 
+**Category (`name`):**
 - Não pode ser vazio (`@IsNotEmpty`)
 - Não pode conter apenas espaços em branco (`@Matches(/\S+/)`)
 - Máximo de 255 caracteres (`@MaxLength(255)`)
 
-Quando a validação falha, um `EntityValidationError` é lançado com os erros organizados por campo.
+**CastMember:**
+- `name`: não pode ser vazio, não pode conter apenas espaços em branco, máximo de 255 caracteres
+- `type`: deve ser `1` (Diretor) ou `2` (Ator) — validado via `@IsIn([1, 2])`
 
 ### Repositório
 
 - **`InMemoryRepository`** — operações básicas de CRUD (`insert`, `findById`, `findAll`, `update`, `delete`).
 - **`InMemorySearchableRepository`** — estende o anterior adicionando `search` com suporte a filtro, ordenação e paginação.
 
-O `CategoryInMemoryRepository` implementa:
+#### CategoryInMemoryRepository
 
-| Comportamento | Detalhe |
-|---|---|
-| Filtro por nome | Substring case-insensitive |
-| Ordenação padrão | `created_at` decrescente quando `sort` não é informado |
-| Paginação | `page`, `per_page` (padrão: 15), `last_page` calculado automaticamente |
+| Comportamento    | Detalhe                                                                |
+| ---------------- | ---------------------------------------------------------------------- |
+| Filtro por nome  | Substring case-insensitive                                             |
+| Ordenação padrão | `created_at` decrescente quando `sort` não é informado                 |
+| Paginação        | `page`, `per_page` (padrão: 15), `last_page` calculado automaticamente |
+
+#### CastMemberInMemoryRepository
+
+| Comportamento       | Detalhe                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| Filtro por nome     | Substring case-insensitive                                             |
+| Filtro por tipo     | Correspondência exata com `CastMemberType` (1 ou 2)                   |
+| Filtro combinado    | `name` e `type` podem ser aplicados simultaneamente                    |
+| Ordenação padrão    | `created_at` decrescente quando `sort` não é informado                 |
+| Paginação           | `page`, `per_page` (padrão: 15), `last_page` calculado automaticamente |
 
 ## Requisitos
 
@@ -115,13 +172,14 @@ docker compose up
 
 ## Scripts Disponíveis
 
-| Script | Descrição |
-|---|---|
-| `npm test` | Executa todos os testes com cobertura de código |
-| `npm run test:watch` | Executa os testes em modo watch |
-| `npm run tsc:check` | Verifica tipagem TypeScript sem gerar build |
-| `npm run build` | Compila o TypeScript para `dist/` |
-| `npm run start:dev` | Inicia o servidor de desenvolvimento com hot-reload |
+| Script                | Descrição                                           |
+| --------------------- | --------------------------------------------------- |
+| `npm test`            | Executa todos os testes com cobertura de código     |
+| `npm run test:cov`    | Executa todos os testes com cobertura de código     |
+| `npm run test:watch`  | Executa os testes em modo watch                     |
+| `npm run tsc:check`   | Verifica tipagem TypeScript sem gerar build         |
+| `npm run build`       | Compila o TypeScript para `dist/`                   |
+| `npm run start:dev`   | Inicia o servidor de desenvolvimento com hot-reload |
 
 ## Qualidade de Código
 
@@ -132,12 +190,12 @@ docker compose up
 
 O `Dockerfile` utiliza multi-stage builds:
 
-| Stage | Finalidade |
-|---|---|
-| `base` | Node 20 Alpine com dependências instaladas |
+| Stage         | Finalidade                                          |
+| ------------- | --------------------------------------------------- |
+| `base`        | Node 20 Alpine com dependências instaladas          |
 | `development` | Monta o código-fonte, executa via nodemon + ts-node |
-| `build` | Compila o TypeScript |
-| `production` | Imagem mínima apenas com o output compilado |
+| `build`       | Compila o TypeScript                                |
+| `production`  | Imagem mínima apenas com o output compilado         |
 
 ## Tecnologias
 
@@ -147,4 +205,3 @@ O `Dockerfile` utiliza multi-stage builds:
 - **Jest + ts-jest** — testes unitários com cobertura de código
 - **nodemon + ts-node** — hot-reload em desenvolvimento
 - **Docker** — ambientes de desenvolvimento e produção em contêiner
-# fullcycle-video-endpoints

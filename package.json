@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "test": "jest --coverage",
+    "test:cov": "jest --coverage",
     "test:watch": "jest --watch",
     "tsc:check": "tsc --noEmit",
     "build": "tsc",
